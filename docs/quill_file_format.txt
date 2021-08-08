@@ -1,0 +1,88 @@
+From "Turning real scenes into VR paintings" by Joan Charmant, 2018
+// http://joancharmant.com/blog/turning-real-scenes-into-vr-paintings/#oculus-quill-data-format
+
+Oculus Quill data format
+Quill’s data format is relatively simple, all the magic actually happens in Quill’s renderer, created by Inigo Quilez for Oculus Story Studio.
+
+I reverse engineered the format using HEXEdit and Quill itself to create sample files.
+
+Note: the core QBIN format was largely unaffected by the February 2018 update that introduced animations. Each animation frame has its own pointer into the QBIN file where previously the entire paint layer had a single pointer into the file. The Quill.json on the other hand was significantly updated.
+
+Overview
+A Quill scene is composed of three files:
+
+Quill.json: contains the layer hierarchy and global information about the scene.
+State.json: contains the current rendering options, tool and color palette.
+Quill.qbin: contains strokes data.
+JSON manifest
+The file Quill.json is the manifest for the scene. It contains global scene information like the background color, whether animations should play on start, the home transform and the entire hierarchy of layers. The format is rather simple and variable names self-explanatory.
+
+The layers can be of the following types:
+
+Group layers: contain a list of other layers. The root layer is a group layer.
+Sound and picture layers: contain various info about an external media source and its filename.
+Paint layers: contain a list of animation frames (called “Drawings”) and each frame will reference an address in the QBIN file.
+In addition to the information specific to their type, all layers share a number of attributes: a name, a transform relative to the parent group layer, whether it is visible, locked, collapsed, information regarding animation looping as well as some other bits of information.
+
+Note: it should be possible to craft a file in such a way that several layers point to the same QBIN data block. This could be useful for “instancing” a drawing multiple times in the scene without increasing the file size.
+
+QBIN binary format
+The QBIN data file contains a small header followed by several lists of strokes. The lists of strokes are stored one after the other and the paint layers reference the file address for the start of the corresponding list.
+
+In the original file format the list of strokes corresponded to paint layers, now they correspond to animation frames inside paint layers. Each animation frame is called a “Drawing”. Each layer has its own independent timeline of drawings.
+
+The following table summarize the fields, their hex offsets and data types that I could figure out. Some fields type or meaning are still unknown to me. This table should be valid for version 1.4 of Quill.
+ 
+
+File
+
+Offset	Size	Type			Description
+0x00	4		int32			Highest global stroke id
+0x04	4		?				Unknown
+0x08	-		Array<Drawing>	Start of array of drawings
+ 
+
+Drawing
+
+Offset	Size	Type			Description
+0x00	4		int32			Number of strokes in the drawing
+0x04	-		Array<Stroke>	Start of array of strokes
+ 
+
+Stroke
+
+Offset	Size	Type			Description
+0x00	4		int32			Global stroke id
+0x04	4		?				Unknown
+0x08	24		Bbox			Bounding box of the stroke
+0x24	2		int16			Brush type*
+0x26	1		bool			Disable rotational opacity
+0x27	1		?				Unknown
+0x28	4		int32			Number of vertices in the stroke
+0x2C	-		Array<Vertex>	Start of array of vertices
+
+*Brush type enumeration: 0: Line, 1: Ribbon, 2: Cylinder, 3: Ellipse, 4: Cube.
+
+
+Bbox
+
+Offset	Size	Type	Description
+0x00	4		float	min x
+0x04	4		float	max x
+0x08	4		float	min y
+0x0C	4		float	max y
+0x10	4		float	min z
+0x14	4		float	max z
+ 
+
+Vertex
+
+Offset	Size	Type	Description
+0x00	12		vec3	Position
+0x0C	12		vec3	Normal
+0x18	12		vec3	Tangent
+0x24	12		vec3	Color
+0x30	4		float	Opacity
+0x34	4		float	Width
+ 
+
