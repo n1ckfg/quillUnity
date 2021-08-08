@@ -15,8 +15,8 @@ public class QuillLoader : MonoBehaviour {
     public int numStrokes;
     public List<QuillStroke> strokes;
 
-	[HideInInspector] public JSONNode json;
-	[HideInInspector] public byte[] bytes;
+    [HideInInspector] public JSONNode json;
+    [HideInInspector] public byte[] bytes;
 
     private ZipFile zipFile;
 
@@ -29,7 +29,8 @@ public class QuillLoader : MonoBehaviour {
 	}
 
 	private IEnumerator reader(string readFileName) {
-        // A tilt zipfile should contain three items: thumbnail.png, data.sketch, metadata.json
+        // A quill zipfile should contain three items: Quill.json, Quill.qbin, and State.json
+        // Quill.json describes data structures with an index in the Quill.qbin binary blob.
         string url = formPath(readFileName);
 
         UnityWebRequest www = UnityWebRequest.Get(url);
@@ -65,10 +66,10 @@ public class QuillLoader : MonoBehaviour {
 
         foreach (ZipEntry entry in zipFile) {
 			switch(entry.Name.ToLower()) {
-                case "metadata.json":
+                case "quill.json":
                     json = readEntryAsJson(entry);
                     break;
-                case "data.sketch":
+                case "quill.qbin":
                     bytes = readEntryAsBytes(entry);
                     break;
 			}
@@ -78,60 +79,69 @@ public class QuillLoader : MonoBehaviour {
 	private void parseQuill() {
         strokes = new List<QuillStroke>();
 
-        numStrokes = BitConverter.ToInt32(bytes, 16);
+        foreach (JSONNode childNode in json["Sequence"]["RootLayer"]["Implementation"]["Children"]) {
+            Debug.Log(childNode["Name"]);
+            foreach (JSONNode drawingNode in childNode["Implementation"]["Drawings"]) {
+                Debug.Log(drawingNode["DataFileOffset"]);
+        
+                numStrokes = BitConverter.ToInt32(bytes, 31104108);
+                Debug.Log(numStrokes);
+                /*
+                int offset = 20;
 
-		int offset = 20;
+                for (int i = 0; i < numStrokes; i++) {
+                    int brushIndex = BitConverter.ToInt32(bytes, offset);
 
-        for (int i = 0; i < numStrokes; i++) {
-            int brushIndex = BitConverter.ToInt32(bytes, offset);
+                    float r = BitConverter.ToSingle(bytes, offset + 4);
+                    float g = BitConverter.ToSingle(bytes, offset + 8);
+                    float b = BitConverter.ToSingle(bytes, offset + 12);
+                    float a = BitConverter.ToSingle(bytes, offset + 16);
+                    Color brushColor = new Color(r, g, b, a);
 
-            float r = BitConverter.ToSingle(bytes, offset + 4);
-            float g = BitConverter.ToSingle(bytes, offset + 8);
-            float b = BitConverter.ToSingle(bytes, offset + 12);
-            float a = BitConverter.ToSingle(bytes, offset + 16);
-            Color brushColor = new Color(r, g, b, a);
+                    float brushSize = BitConverter.ToSingle(bytes, offset + 20);
+                    UInt32 strokeMask = BitConverter.ToUInt32(bytes, offset + 24);
+                    UInt32 controlPointMask = BitConverter.ToUInt32(bytes, offset + 28);
 
-            float brushSize = BitConverter.ToSingle(bytes, offset + 20);
-            UInt32 strokeMask = BitConverter.ToUInt32(bytes, offset + 24);
-            UInt32 controlPointMask = BitConverter.ToUInt32(bytes, offset + 28);
+                    int offsetStrokeMask = 0;
+                    int offsetControlPointMask = 0;
 
-            int offsetStrokeMask = 0;
-            int offsetControlPointMask = 0;
+                    for (int j = 0; j < 4; j++) {
+                        byte bb = (byte)(1 << j);
+                        if ((strokeMask & bb) > 0) offsetStrokeMask += 4;
+                        if ((controlPointMask & bb) > 0) offsetControlPointMask += 4;
+                    }
 
-            for (int j = 0; j < 4; j++) {
-                byte bb = (byte)(1 << j);
-                if ((strokeMask & bb) > 0) offsetStrokeMask += 4;
-                if ((controlPointMask & bb) > 0) offsetControlPointMask += 4;
+                    offset += 28 + offsetStrokeMask + 4;
+
+                    int numControlPoints = BitConverter.ToInt32(bytes, offset);
+
+                    //parent.println("3. " + numControlPoints);
+
+                    List<Vector3> positions = new List<Vector3>();
+
+                    offset += 4;
+
+                    for (int j = 0; j < numControlPoints; j++) {
+                        float x = BitConverter.ToSingle(bytes, offset + 0);
+                        float y = BitConverter.ToSingle(bytes, offset + 4);
+                        float z = BitConverter.ToSingle(bytes, offset + 8);
+                        positions.Add(new Vector3(x, y, z));
+
+                        //float qw = BitConverter.ToSingle(bytes, offset + 12);
+                        //float qx = BitConverter.ToSingle(bytes, offset + 16);
+                        //float qy = BitConverter.ToSingle(bytes, offset + 20);
+                        //float qz = BitConverter.ToSingle(bytes, offset + 24);
+
+                        offset += 28 + offsetControlPointMask;
+                    }
+
+                    QuillStroke stroke = Instantiate(prefab, transform.position, transform.rotation).GetComponent<QuillStroke>();
+                    stroke.transform.parent = transform;
+                    stroke.init(positions, brushSize, brushColor);
+                    strokes.Add(stroke);
+                }
+                */
             }
-
-            offset += 28 + offsetStrokeMask + 4;
-
-            int numControlPoints = BitConverter.ToInt32(bytes, offset);
-
-			//parent.println("3. " + numControlPoints);
-
-			List<Vector3> positions = new List<Vector3>();
-
-            offset += 4;
-
-            for (int j = 0; j < numControlPoints; j++) {
-                float x = BitConverter.ToSingle(bytes, offset + 0);
-                float y = BitConverter.ToSingle(bytes, offset + 4);
-                float z = BitConverter.ToSingle(bytes, offset + 8);
-                positions.Add(new Vector3(x, y, z));
-
-                //float qw = BitConverter.ToSingle(bytes, offset + 12);
-                //float qx = BitConverter.ToSingle(bytes, offset + 16);
-                //float qy = BitConverter.ToSingle(bytes, offset + 20);
-                //float qz = BitConverter.ToSingle(bytes, offset + 24);
-
-                offset += 28 + offsetControlPointMask;
-            }
-
-            QuillStroke stroke = Instantiate(prefab, transform.position, transform.rotation).GetComponent<QuillStroke>();
-            stroke.transform.parent = transform;
-			stroke.init(positions, brushSize, brushColor);
-			strokes.Add(stroke);
         }
     }
 
