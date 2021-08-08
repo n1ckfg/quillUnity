@@ -262,6 +262,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   prefab: {fileID: 2956262006889378269, guid: 28bef5f1ca3504b1db75a085e7caef8f, type: 3}
   readFileName: grass_00.quill
+  scale: 10
   numStrokes: 0
   strokes: []
   bytes: 
