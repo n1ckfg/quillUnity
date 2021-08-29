@@ -1,5 +1,5 @@
 # quillUnity
-Quill reader for Unity by @n1ckfg.
+Quill reader for Unity by @n1ckfg
 
 Adapted from SharpQuill by @JoanCharmant / 
 Quill drawing by @cabbibo / 
